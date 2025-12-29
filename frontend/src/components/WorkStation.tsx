@@ -25,7 +25,10 @@ import {
 // Components
 import Canvas from "./canvas/Canvas";
 import MiniMap from "./Minimap";
-import SQLDrawer from "./SQLDrawer";
+
+import { lazy, Suspense } from "react";
+const SQLDrawer = lazy(() => import("./SQLDrawer"));
+
 import SnipOverlay from "./SnipOverlay";
 import GenerateModal from "./GenerateModel";
 import { NotFound } from "./NotFound"; // Import your 404 component
@@ -570,7 +573,10 @@ function WorkStation() {
         />
       )}
 
+    <Suspense fallback={null}>
       <SQLDrawer />
+    </Suspense>
+    
       {deployOpen && <DeployModal onClose={() => setDeployOpen(false)} />}
       <Toaster position="top-center" theme="dark" richColors />
 
