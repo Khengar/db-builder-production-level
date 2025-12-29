@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, type MouseEvent } from 'react';
-import "src/components/css/glassbutton.css";
+import "./css/glassbutton.css";
 
 // 1. Define the props interface
 interface GlassButtonProps {
