@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import { useRef, useEffect } from 'react';
 import { useDBStore } from '../../store/dbStore'; 
 import TableNode from '../nodes/TableNode';   
 import RelationsLayer from './RelationsLayer'; 

@@ -1,5 +1,3 @@
-import { v4 as uuidv4 } from 'uuid';
-
 // --- Types ---
 export type ProjectData = {
   tables: any[];

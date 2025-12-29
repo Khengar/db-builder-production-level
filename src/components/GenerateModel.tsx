@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { X, UploadCloud, Loader2, Sparkles, Image as ImageIcon } from "lucide-react";
+import { X, UploadCloud, Loader2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { ApiService } from "../lib/api"; // Ensure this matches your path
 

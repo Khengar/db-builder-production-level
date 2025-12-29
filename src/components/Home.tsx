@@ -1,13 +1,13 @@
 import Spline from '@splinetool/react-spline';
 import './css/home.css';
 import { useRef } from 'react';
-import GlassButton from '../components/ui/GlassButton.jsx'; // Ensure path is correct
+import GlassButton from './GlassButton'; // Ensure path is correct
 import { Link } from 'react-router-dom';
 
 export function Home() {
-    const splineRef = useRef();
+    const splineRef = useRef<any>(null);
 
-    function onLoad(spline) {
+    function onLoad(spline: any) {
         splineRef.current = spline;
         // Optional: Adjust zoom based on screen width if needed
         spline.setZoom(0.6); 

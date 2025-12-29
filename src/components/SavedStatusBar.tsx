@@ -1,4 +1,3 @@
-import React from 'react';
 import { useDBStore } from '../store/dbStore';
 import { Loader2, CheckCircle2, CircleDot, AlertCircle } from 'lucide-react';
 

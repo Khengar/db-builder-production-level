@@ -100,7 +100,7 @@ export default function RelationsLayer() {
     })
     .filter((e): e is NonNullable<typeof e> => e !== null)
     // 6. Sort selected to end (render on top)
-    .sort((a, b) => (a.isSelected ? 1 : -1));
+    .sort((a) => (a.isSelected ? 1 : -1));
 
   }, [relations, tables, selectedRelationId]);
 

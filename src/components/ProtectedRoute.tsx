@@ -2,9 +2,10 @@
 import { Navigate, Outlet } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { supabaseClient } from "../lib/supabaseClient";
+import { type Session } from '@supabase/supabase-js';
 
 export const ProtectedRoute = () => {
-  const [session, setSession] = useState(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {

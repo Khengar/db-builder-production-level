@@ -5,7 +5,7 @@ const DEBOUNCE_DELAY = 2000;
 
 export const useAutoSave = (projectId: string) => {
   const { tables, relations, setSaveStatus } = useDBStore();
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const timeoutRef = useRef<number | null>(null);
   const isFirstRender = useRef(true);
 
   useEffect(() => {

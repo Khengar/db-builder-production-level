@@ -1,12 +1,28 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, type MouseEvent } from 'react';
 import '../css/glassbutton.css';
 
-const GlassButton = ({ children = "EXPLORE", onClick }) => {
-  const btnRef = useRef(null);
-  const frameRef = useRef(null);
+// 1. Define the props interface
+interface GlassButtonProps {
+  children?: React.ReactNode;
+  onClick?: () => void; // Optional to fix the error in Home.tsx
+}
+
+// 2. Define the mutable state interface for the ref
+interface AnimationState {
+  mouseX: number;
+  mouseY: number;
+  currX: number;
+  currY: number;
+  isHovering: boolean;
+}
+
+const GlassButton = ({ children = "EXPLORE", onClick }: GlassButtonProps) => {
+  // 3. Explicitly type the refs
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const frameRef = useRef<number | null>(null);
   
   // Mutable state to avoid React re-renders
-  const state = useRef({
+  const state = useRef<AnimationState>({
     mouseX: 0,
     mouseY: 0,
     currX: 0,
@@ -45,7 +61,8 @@ const GlassButton = ({ children = "EXPLORE", onClick }) => {
     };
   }, []);
 
-  const handleMouseMove = (e) => {
+  // 4. Type the MouseEvent specifically for a button element
+  const handleMouseMove = (e: MouseEvent<HTMLButtonElement>) => {
     if (btnRef.current) {
       const rect = btnRef.current.getBoundingClientRect();
       state.current.mouseX = e.clientX - rect.left;
