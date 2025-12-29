@@ -21,7 +21,7 @@ export const useAutoSave = (projectId: string) => {
 
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
 
-    timeoutRef.current = setTimeout(async () => {
+    timeoutRef.current = window.setTimeout(async () => {
       try {
         // Use the dynamic projectId in the URL
         await fetch(`/api/projects/${projectId}`, {

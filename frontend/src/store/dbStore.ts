@@ -344,9 +344,10 @@ export const useDBStore = create<DBState>((set, get) => {
       set((state) => {
         if (!state.activeLink) return state;
 
-        const A = state.activeLink;
-        const B = { tableId, columnId };
+        const A = state.activeLink; // Source (Where you started dragging)
+        const B = { tableId, columnId }; // Target (Where you dropped)
 
+        // 1. Validation: Don't connect to self
         if (A.tableId === B.tableId && A.columnId === B.columnId) {
           return { ...state, activeLink: null };
         }
@@ -355,6 +356,7 @@ export const useDBStore = create<DBState>((set, get) => {
         const tableB = state.tables.find((t) => t.id === B.tableId);
         if (!tableA || !tableB) return { ...state, activeLink: null };
 
+        // 2. Find explicit Primary Keys (if they exist)
         const pkA = tableA.columns.find((c) => c.isPrimary);
         const pkB = tableB.columns.find((c) => c.isPrimary);
 
@@ -362,30 +364,44 @@ export const useDBStore = create<DBState>((set, get) => {
         let parentEndpoint, childEndpoint;
         let parentPK;
 
-        // Determine Parent/Child based on Primary Keys
+        // --- THE LOGIC FIX ---
+
+        // Case 1: Source has PK (Normal Drag)
         if (pkA) {
           parentTable = tableA;
           childTable = tableB;
           parentEndpoint = A;
           childEndpoint = B;
           parentPK = pkA;
-        } else if (pkB) {
+        }
+        // Case 2: Target has PK (Reverse Drag)
+        else if (pkB) {
           parentTable = tableB;
           childTable = tableA;
           parentEndpoint = B;
           childEndpoint = A;
           parentPK = pkB;
-        } else {
-          console.warn("Relation requires at least one table to have a PK.");
-          return { ...state, activeLink: null };
+        }
+        // Case 3 (The Fix): NO Primary Keys set on either side.
+        // We assume the Source (A) is the Parent.
+        else {
+          parentTable = tableA;
+          childTable = tableB;
+          parentEndpoint = A;
+          childEndpoint = B;
+          // We use the specific column you dragged FROM as the reference key
+          parentPK = tableA.columns.find(c => c.id === A.columnId)!;
         }
 
+        // ---------------------
+
+        // 3. Create the Foreign Key on the Child Table
         const fkName = makeFKName(parentTable.name);
         const childHasFK = childTable.columns.some((c) => c.name === fkName);
 
         let updatedTables = state.tables.map((t) => {
           if (t.id !== childTable.id) return t;
-          if (childHasFK) return t;
+          if (childHasFK) return t; // Avoid duplicates
 
           return {
             ...t,
@@ -394,7 +410,7 @@ export const useDBStore = create<DBState>((set, get) => {
               {
                 id: uuid(),
                 name: fkName,
-                type: parentPK.type,
+                type: parentPK.type, // Copy type from Parent
                 isForeign: true,
                 isNullable: true,
                 references: { tableId: parentTable.id, columnId: parentPK.id },
@@ -410,7 +426,7 @@ export const useDBStore = create<DBState>((set, get) => {
           cardinality: "one-to-many",
           deleteRule: "cascade",
           updateRule: "cascade",
-          isOneToManyReversed: false, // Default normal 1-N
+          isOneToManyReversed: false,
         };
 
         return {
