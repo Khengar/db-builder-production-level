@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect } from "react";
-import { useParams } from "react-router-dom"; 
+import { useParams } from "react-router-dom";
 import "../index.css";
 import { Toaster, toast } from "sonner";
 import { supabaseClient } from "../lib/supabaseClient"; // Added for auth check
@@ -18,7 +18,8 @@ import {
   Sparkles,
   Wand2,
   Cloud,
-  Loader2
+  Loader2,
+  CloudUpload
 } from "lucide-react";
 
 // Components
@@ -28,6 +29,7 @@ import SQLDrawer from "./SQLDrawer";
 import SnipOverlay from "./SnipOverlay";
 import GenerateModal from "./GenerateModel";
 import { NotFound } from "./NotFound"; // Import your 404 component
+import { DeployModal } from "./DeployModel"; // Add this
 
 // Store & Libs
 import { useDBStore } from "../store/dbStore";
@@ -40,7 +42,7 @@ import { useProjectSave } from "@/hooks/useProjectSave";
 
 function WorkStation() {
   const { projectId } = useParams(); // Get Project ID from URL
-  
+
   // --- STORE STATE ---
   const addTable = useDBStore((s) => s.addTable);
   const viewport = useDBStore((s) => s.viewport);
@@ -69,88 +71,92 @@ function WorkStation() {
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true); // Default to true
   const [isValidProject, setIsValidProject] = useState(false); // Security check
-  
+
+
+  // --- DEPLOY ---
+  const [deployOpen, setDeployOpen] = useState(false);
+
   // Hook for auto-saving
-  useProjectSave(isValidProject ? (projectId || '') : ''); 
+  useProjectSave(isValidProject ? (projectId || '') : '');
 
   /* -------------------------------------------------------
       1. SECURITY & CLOUD LOAD EFFECT
      -------------------------------------------------------- */
-/* -------------------------------------------------------
-    1. SECURITY & CLOUD LOAD EFFECT
-   -------------------------------------------------------- */
-useEffect(() => {
-  // 1. Mount Flag: Prevents state updates if user leaves page mid-load
-  let isMounted = true; 
+  /* -------------------------------------------------------
+      1. SECURITY & CLOUD LOAD EFFECT
+     -------------------------------------------------------- */
+  useEffect(() => {
+    // 1. Mount Flag: Prevents state updates if user leaves page mid-load
+    let isMounted = true;
 
-  const initWorkstation = async () => {
-    // If no ID is present, we are in "Local/Demo Mode" -> Valid by default
-    if (!projectId) {
-      if (isMounted) {
-        setIsValidProject(true);
-        setIsLoading(false);
-      }
-      return;
-    }
-
-    try {
-      // A. Verify Ownership
-      const { data: { user } } = await supabaseClient.auth.getUser();
-      
-      if (!user) {
-         if (isMounted) {
-             setIsValidProject(false);
-             setIsLoading(false);
-         }
-         return;
+    const initWorkstation = async () => {
+      // If no ID is present, we are in "Local/Demo Mode" -> Valid by default
+      if (!projectId) {
+        if (isMounted) {
+          setIsValidProject(true);
+          setIsLoading(false);
+        }
+        return;
       }
 
-      // Check if project exists and belongs to user
-      const { data: projectCheck, error: checkError } = await supabaseClient
+      try {
+        // A. Verify Ownership
+        const { data: { user } } = await supabaseClient.auth.getUser();
+
+        if (!user) {
+          if (isMounted) {
+            setIsValidProject(false);
+            setIsLoading(false);
+          }
+          return;
+        }
+
+        // Check if project exists and belongs to user
+        const { data: projectCheck, error: checkError } = await supabaseClient
           .from('projects')
           .select('id, name')
           .eq('id', projectId)
           .eq('user_id', user.id)
           .single(); // Returns specific error if 0 or >1 rows found
 
-      if (checkError || !projectCheck) {
+        if (checkError || !projectCheck) {
           console.error("Access denied or project not found:", checkError);
           if (isMounted) {
-             setIsValidProject(false);
-             // Note: Loading state is handled in 'finally'
+            setIsValidProject(false);
+            // Note: Loading state is handled in 'finally'
           }
           return;
-      }
+        }
 
-      // B. If valid, Update UI
-      if (isMounted) {
+        // B. If valid, Update UI
+        if (isMounted) {
           setIsValidProject(true);
           setProjectName(projectCheck.name); // Set name from DB immediately
+        }
+
+        // C. Load the heavy JSON content
+        const loadedName = await loadProjectFromCloud(projectId);
+
+        if (isMounted && loadedName) {
+          toast.success(`Loaded "${loadedName}"`);
+        }
+
+      } catch (err) {
+        console.error("Workstation Init Error:", err);
+        toast.error("Failed to load project.");
+        if (isMounted) setIsValidProject(false);
+      } finally {
+        if (isMounted) setIsLoading(false);
       }
-      
-      // C. Load the heavy JSON content
-      const loadedName = await loadProjectFromCloud(projectId);
-      
-      if (isMounted && loadedName) {
-           toast.success(`Loaded "${loadedName}"`);
-      }
-      
-    } catch (err) {
-      console.error("Workstation Init Error:", err);
-      toast.error("Failed to load project.");
-      if (isMounted) setIsValidProject(false);
-    } finally {
-      if (isMounted) setIsLoading(false);
-    }
-  };
+    };
 
-  initWorkstation();
+    initWorkstation();
 
-  // Cleanup function: invalidates the flag when component unmounts
-  return () => { isMounted = false; };
-}, [projectId]);
+    // Cleanup function: invalidates the flag when component unmounts
+    return () => { isMounted = false; };
+  }, [projectId]);
 
-useEffect(() => {
+  useEffect(() => {
     const element = mainRef.current;
     if (!element) return;
 
@@ -163,7 +169,7 @@ useEffect(() => {
       const store = useDBStore.getState();
       const factor = 1 + (e.deltaY > 0 ? -1 : 1) * 0.05;
       const newScale = Math.min(4, Math.max(0.2, store.viewport.scale * factor));
-      
+
       store.setScale(newScale, e.clientX, e.clientY);
     };
 
@@ -226,48 +232,48 @@ useEffect(() => {
       // --- ESCAPE HANDLER ---
       if (e.key === "Escape") {
         e.preventDefault();
-        
+
         // 1. If drawing a line, cancel it
         if (store.activeLink) {
-            store.cancelRelation();
-            toast.info("Connection cancelled");
-            return;
+          store.cancelRelation();
+          toast.info("Connection cancelled");
+          return;
         }
 
         // 2. If a relation is selected (Inspector open), deselect it
         if (store.selectedRelationId) {
-            store.selectRelation(null);
-            return;
+          store.selectRelation(null);
+          return;
         }
 
         // 3. If tables are selected, clear selection
         if (store.selected.length > 0) {
-            store.clearSelection();
-            return;
+          store.clearSelection();
+          return;
         }
-        
+
         // 4. Close any open UI panels (like Generate Modal)
         if (generateOpen) setGenerateOpen(false);
         if (snipOpen) setSnipOpen(false);
       }
 
       // --- EXISTING SHORTCUTS ---
-      if (e.key === "Delete" || e.key === "Backspace") { 
+      if (e.key === "Delete" || e.key === "Backspace") {
         // Only delete if not editing text
         store.deleteSelected();
         if (store.selectedRelationId) {
-           store.deleteRelation(store.selectedRelationId);
+          store.deleteRelation(store.selectedRelationId);
         }
       }
-      
+
       if (e.ctrlKey || e.metaKey) {
         if (e.key === "z") {
-           e.preventDefault(); 
-           store.undo();
+          e.preventDefault();
+          store.undo();
         }
         if (e.key === "y") {
-           e.preventDefault(); 
-           store.redo();
+          e.preventDefault();
+          store.redo();
         }
       }
     };
@@ -376,7 +382,7 @@ useEffect(() => {
       toast.error("Failed to load project.");
     }
   };
-  
+
   const handleAIResult = async (jsonData: any) => {
     const file = new File(
       [JSON.stringify(jsonData)],
@@ -400,7 +406,7 @@ useEffect(() => {
 
   // --- RENDER 404 IF INVALID ---
   if (!isValidProject) {
-      return <NotFound />;
+    return <NotFound />;
   }
 
   // --- RENDER WORKSTATION ---
@@ -431,13 +437,13 @@ useEffect(() => {
           <span className="font-bold text-sm tracking-tight text-white">{projectName}</span>
         </div>
         <SaveStatus />
-        
+
 
         <div className="flex items-center gap-1 p-1 bg-zinc-900/80 backdrop-blur-md border border-white/10 rounded-xl shadow-xl pointer-events-auto">
-          <ControlButton 
-            onClick={handleSave} 
-            icon={isSaving ? <Loader2 className="animate-spin" size={16}/> : (projectId ? <Cloud size={16}/> : <Save size={16}/>)} 
-            tooltip={projectId ? "Save to Cloud" : "Download File"} 
+          <ControlButton
+            onClick={handleSave}
+            icon={isSaving ? <Loader2 className="animate-spin" size={16} /> : (projectId ? <Cloud size={16} /> : <Save size={16} />)}
+            tooltip={projectId ? "Save to Cloud" : "Download File"}
           />
           <label className="cursor-pointer">
             <input type="file" accept=".dbb,.json" className="hidden" onChange={(e) => {
@@ -513,6 +519,13 @@ useEffect(() => {
               Generate
             </span>
           </button>
+      <button
+        onClick={() => setDeployOpen(true)}
+        className="pointer-events-auto flex items-center gap-2 px-5 py-3 bg-zinc-900/90 backdrop-blur-md border border-zinc-800 hover:border-emerald-500/50 text-zinc-300 hover:text-white rounded-full shadow-lg shadow-black/50 transition-all active:scale-95 group"
+      >
+        <CloudUpload className="w-4 h-4 text-emerald-500 group-hover:text-emerald-400" />
+        <span className="text-sm font-medium">Deploy</span>
+      </button>
 
           {/* Tidy Up */}
           <button
@@ -558,6 +571,7 @@ useEffect(() => {
       )}
 
       <SQLDrawer />
+      {deployOpen && <DeployModal onClose={() => setDeployOpen(false)} />}
       <Toaster position="top-center" theme="dark" richColors />
 
     </div>
