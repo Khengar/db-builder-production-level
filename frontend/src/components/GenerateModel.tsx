@@ -1,7 +1,7 @@
 import { useState, useRef } from "react";
 import { X, UploadCloud, Loader2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
-import { ApiService } from "../lib/api"; // Ensure this matches your path
+import { ApiService } from "../lib/api"; 
 
 interface GenerateModalProps {
   onClose: () => void;
@@ -25,24 +25,105 @@ export default function GenerateModal({ onClose, onSuccess }: GenerateModalProps
     reader.readAsDataURL(selectedFile);
   };
 
+  // --- ADAPTER: AI Backend -> React Flow UI ---
+  const adaptSchema = (data: any) => {
+    if (!data || !data.tables) return data;
+
+    const tableIdMap = new Map<string, string>();
+    const colIdMap = new Map<string, string>();
+
+    // 1. Tables: Generate IDs, Layout, and Map Types
+    const newTables = data.tables.map((table: any, index: number) => {
+      const tableId = crypto.randomUUID();
+      tableIdMap.set(table.name, tableId);
+
+      // Grid Layout (3 per row)
+      const x = (index % 3) * 350;
+      const y = Math.floor(index / 3) * 350;
+
+      return {
+        ...table,
+        id: tableId,
+        x: x,
+        y: y,
+        columns: table.columns.map((col: any) => {
+          const colId = crypto.randomUUID();
+          colIdMap.set(`${table.name}.${col.name}`, colId);
+          
+          // Map Backend Types (UPPERCASE) -> Frontend UI Options (lowercase)
+          // Matches your TableNode.tsx options: "int", "text", "date", "bool", "uuid", "json"
+          let type = col.type.toLowerCase();
+          
+          if (type === "integer") type = "int";
+          if (type === "timestamp" || type === "datetime") type = "date";
+          if (type === "boolean") type = "bool";
+          if (type === "varchar" || type === "string") type = "text";
+
+          return { 
+            ...col, 
+            id: colId, 
+            type: type, // Now strictly matches your dropdown options
+            isPrimary: col.is_primary_key || false,
+            isUnique: false,
+            isNullable: false
+          };
+        }),
+      };
+    });
+
+    // 2. Relationships: Fix Nesting for Lines
+    const newRelationships = (data.relationships || []).map((rel: any) => {
+      const fromTableId = tableIdMap.get(rel.from_table);
+      const toTableId = tableIdMap.get(rel.to_table);
+      
+      // Look up Column IDs (Backend sends names, Store needs IDs)
+      let fromColId = colIdMap.get(`${rel.from_table}.${rel.from_column}`);
+      let toColId = colIdMap.get(`${rel.to_table}.${rel.to_column}`);
+
+      // Fallback: Link to 'id' if AI Hallucinated a column name
+      if (!fromColId) fromColId = colIdMap.get(`${rel.from_table}.id`);
+      if (!toColId) toColId = colIdMap.get(`${rel.to_table}.id`);
+
+      if (!fromTableId || !toTableId || !fromColId || !toColId) return null;
+
+      return {
+        id: crypto.randomUUID(),
+        from: {
+          tableId: fromTableId,
+          columnId: fromColId
+        },
+        to: {
+          tableId: toTableId,
+          columnId: toColId
+        },
+        type: rel.type || "1:N"
+      };
+    }).filter(Boolean);
+
+    return { tables: newTables, relations: newRelationships };
+  };
+
   const handleGenerate = async () => {
     if (!file) return;
 
     setLoading(true);
-    const toastId = toast.loading("Analyzing image structure...");
+    const toastId = toast.loading("AI is analyzing structure...");
 
     try {
-      // 1. Call your Local API
-      const data = await ApiService.generateSchema(file);
+      // 1. Get Strict JSON from Backend
+      const rawData = await ApiService.generateSchema(file);
+      
+      // 2. Adapt for UI (Layout + IDs)
+      const cleanData = adaptSchema(rawData);
       
       toast.dismiss(toastId);
-      toast.success("Schema generated successfully!");
+      toast.success("Schema imported successfully!");
       
-      // 2. Pass data back to App
-      onSuccess(data);
+      onSuccess(cleanData);
       onClose();
+
     } catch (err: any) {
-      console.error(err);
+      console.error("Generation Failed:", err);
       toast.dismiss(toastId);
       toast.error(err.message || "Failed to generate schema");
     } finally {
@@ -67,8 +148,6 @@ export default function GenerateModal({ onClose, onSuccess }: GenerateModalProps
 
         {/* Body */}
         <div className="p-6 space-y-6">
-          
-          {/* Drop Zone */}
           <div 
             onClick={() => inputRef.current?.click()}
             onDragOver={(e) => e.preventDefault()}
@@ -100,7 +179,6 @@ export default function GenerateModal({ onClose, onSuccess }: GenerateModalProps
             )}
           </div>
 
-          {/* Action */}
           <button
             onClick={handleGenerate}
             disabled={!file || loading}

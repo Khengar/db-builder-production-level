@@ -1,6 +1,39 @@
-*.env
+# --- General & Environment Variables ---
+.env
+.env.*
+!.env.example
 
-# Logs
+# --- Dependencies & Build (Node/JS) ---
+node_modules
+dist
+dist-ssr
+*.local
+
+# --- Python & Virtual Environments ---
+# Virtual Environments (Common names)
+venv/
+.venv/
+env/
+.env/
+virt/
+
+# Python compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / Packaging
+build/
+develop-eggs/
+eggs/
+.eggs/
+*.egg-info/
+*.egg
+
+# Jupyter Notebooks (if applicable)
+.ipynb_checkpoints
+
+# --- Logs ---
 logs
 *.log
 npm-debug.log*
@@ -8,22 +41,19 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
+pip-log.txt
 
-node_modules
-dist
-dist-ssr
-*.local
-
-#manual file
+# --- Manual / Temporary Files ---
 dir-Tree.ps1
 dir-tree.txt
 tree.txt
 
-# Editor directories and files
+# --- Editor & OS Files ---
 .vscode/*
 !.vscode/extensions.json
 .idea
 .DS_Store
+Thumbs.db
 *.suo
 *.ntvs*
 *.njsproj

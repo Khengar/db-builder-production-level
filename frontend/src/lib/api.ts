@@ -1,5 +1,5 @@
-// src/lib/api.ts
-const API_URL = "http://localhost:8000";
+
+const API_URL = import.meta.env.VITE_AI_API_KEY || "https://localhost:8000";
 
 export const ApiService = {
   generateSchema: async (file: File) => {
