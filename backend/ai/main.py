@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     CORS_ORIGINS: List[str] = ["https://db-builder-production-level.vercel.app"]
     
     # We use the OpenAI-compatible endpoint from Hugging Face
-    HF_BASE_URL: str = "https://api-inference.huggingface.co/v1/"
+    HF_BASE_URL: str = "https://router.huggingface.co"
     
     VISION_MODEL_ID: str = "Qwen/Qwen2.5-VL-7B-Instruct"
     BRAIN_MODEL_ID: str = "Qwen/Qwen2.5-Coder-7B-Instruct"
